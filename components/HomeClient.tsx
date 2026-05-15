@@ -114,9 +114,12 @@ export default function HomeClient({ cities, baselines }: Props) {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {list.map((city) => {
                   const b = baselines[city.slug];
-                  const fromLive = b?.source === "skyscanner-rapidapi" && b.samples > 0;
-                  const baselineWan = fromLive && b ? (b.baseline / 10000).toFixed(0) : null;
-                  const minWan = fromLive && b?.min ? (b.min / 10000).toFixed(0) : null;
+                  const hasPrice =
+                    !!b &&
+                    (b.source === "skyscanner-rapidapi" || b.source === "seed") &&
+                    b.baseline > 0;
+                  const baselineWan = hasPrice && b ? (b.baseline / 10000).toFixed(0) : null;
+                  const minWan = hasPrice && b?.min ? (b.min / 10000).toFixed(0) : null;
 
                   return (
                     <button
@@ -127,7 +130,7 @@ export default function HomeClient({ cities, baselines }: Props) {
                       <div className="text-xl mb-1">{city.emoji}</div>
                       <div className="text-sm font-semibold text-text">{city.name_ko}</div>
                       <div className="text-[11px] text-text-dim leading-tight">
-                        {fromLive ? (
+                        {hasPrice ? (
                           <div>
                             평월 ₩{baselineWan}만
                             {minWan && (
