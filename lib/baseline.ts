@@ -1,5 +1,4 @@
-// 실제 시장 데이터 baseline + 줍줍 시그널 (Sky-Scrapper API)
-// MVP — Server-side fetch + trimmed mean + 30/90일 window 분석
+// 실제 시장 데이터 baseline + 줍줍 시그널 + 박 수별 top 10 페어 (Sky-Scrapper API)
 // Quota 절감: 7일 cache + 키 2개 round-robin + seed final fallback
 
 import type { City } from "./cities";
@@ -7,26 +6,40 @@ import { ORIGIN_IATA, ORIGIN_DOMESTIC_IATA } from "./cities";
 import { BASELINE_SEED, SEED_REFRESHED_AT } from "./baseline_seed";
 
 const RAPIDAPI_HOST = "sky-scrapper.p.rapidapi.com";
-const REVALIDATE_SECONDS = 60 * 60 * 24 * 7; // 7일 — quota 보호
-const ROUND_TRIP_FACTOR = 1.95;
+const REVALIDATE_SECONDS = 60 * 60 * 24 * 7; // 7일
+const ROUND_TRIP_FACTOR = 1.95; // 편도 → 왕복 indicator (baseline 용)
+const PAIR_DISCOUNT = 0.97; // 동시 예약 할인 factor
+const NIGHT_OPTIONS = [2, 3, 4, 5, 7] as const;
+const TOP_N = 10;
 
 type ApiDay = { day: string; group: "low" | "medium" | "high"; price: number };
 
 export type Signal = "hot" | "ok" | "expensive" | "unknown";
 
+export type Pair = {
+  depart: string; // YYYY-MM-DD
+  returnDate: string; // YYYY-MM-DD
+  total: number; // KRW 왕복 indicative
+  pct: number; // baseline 대비 (양수 = 싸다, 음수 = 비싸다)
+  signal: Signal;
+};
+
 export type Baseline = {
-  baseline: number; // 평월 (왕복 환산, trimmed mean)
-  min: number; // 365일 절대 최저 (왕복 환산)
+  baseline: number; // 평월 (왕복 환산)
+  min: number;
   max: number;
   samples: number;
-  // 줍줍 시그널
-  next30dMin: number; // 다음 30일 최저 (왕복 환산)
-  next30dMinDate: string | null; // YYYY-MM-DD
-  next30dLowDays: number; // 다음 30일 중 "low" 그룹 일자 수
+  // 호환 — 4박 기준 가장 싼 페어
+  next30dMin: number;
+  next30dMinDate: string | null;
+  next30dLowDays: number;
   next90dMin: number;
   next90dMinDate: string | null;
   next90dLowDays: number;
-  signal: Signal; // 평월 대비 next30dMin 시그널
+  signal: Signal;
+  // 신규 — 박 수별 top 10 페어
+  pairs30: Record<number, Pair[]>;
+  pairs90: Record<number, Pair[]>;
   refreshed: string;
   source: "skyscanner-rapidapi" | "seed" | "fallback";
 };
@@ -40,54 +53,60 @@ function trimmedMean(values: number[], trimPct = 0.1): number {
   return Math.round(sum / trimmed.length);
 }
 
-function computeSignal(baseline: number, next30dMin: number): Signal {
-  if (baseline === 0 || next30dMin === 0) return "unknown";
-  const ratio = next30dMin / baseline;
+function computeSignal(baseline: number, price: number): Signal {
+  if (baseline === 0 || price === 0) return "unknown";
+  const ratio = price / baseline;
   if (ratio <= 0.7) return "hot";
   if (ratio >= 1.1) return "expensive";
   return "ok";
 }
 
-function analyzeWindow(
+function buildPairs(
   days: ApiDay[],
-  windowDays: number
-): { min: number; minDate: string | null; lowDays: number } {
+  windowDays: number,
+  baseline: number
+): Record<number, Pair[]> {
   const slice = days.slice(0, windowDays);
-  if (slice.length === 0) return { min: 0, minDate: null, lowDays: 0 };
-  const sorted = [...slice].sort((a, b) => a.price - b.price);
-  const minDay = sorted[0];
-  const lowDays = slice.filter((d) => d.group === "low").length;
-  return {
-    min: Math.round(minDay.price * ROUND_TRIP_FACTOR),
-    minDate: minDay.day,
-    lowDays,
-  };
+  const out: Record<number, Pair[]> = {};
+  for (const n of NIGHT_OPTIONS) {
+    const pairs: Pair[] = [];
+    for (let i = 0; i + n < slice.length; i++) {
+      const a = slice[i];
+      const b = slice[i + n];
+      if (a.price <= 0 || b.price <= 0) continue;
+      const total = Math.round((a.price + b.price) * PAIR_DISCOUNT);
+      pairs.push({
+        depart: a.day,
+        returnDate: b.day,
+        total,
+        pct: baseline > 0 ? Math.round((1 - total / baseline) * 100) : 0,
+        signal: computeSignal(baseline, total),
+      });
+    }
+    pairs.sort((a, b) => a.total - b.total);
+    out[n] = pairs.slice(0, TOP_N);
+  }
+  return out;
+}
+
+function countLowDays(days: ApiDay[], windowDays: number): number {
+  return days.slice(0, windowDays).filter((d) => d.group === "low").length;
+}
+
+function emptyPairsByNights(): Record<number, Pair[]> {
+  const out: Record<number, Pair[]> = {};
+  for (const n of NIGHT_OPTIONS) out[n] = [];
+  return out;
 }
 
 function seedBaseline(city: City): Baseline {
   const s = BASELINE_SEED[city.slug];
-  if (s) {
-    return {
-      baseline: s.baseline,
-      min: s.min,
-      max: s.baseline,
-      samples: s.samples,
-      next30dMin: 0,
-      next30dMinDate: null,
-      next30dLowDays: 0,
-      next90dMin: 0,
-      next90dMinDate: null,
-      next90dLowDays: 0,
-      signal: "unknown",
-      refreshed: SEED_REFRESHED_AT,
-      source: "seed",
-    };
-  }
+  const base = s?.baseline ?? 0;
   return {
-    baseline: 0,
-    min: 0,
-    max: 0,
-    samples: 0,
+    baseline: base,
+    min: s?.min ?? 0,
+    max: base,
+    samples: s?.samples ?? 0,
     next30dMin: 0,
     next30dMinDate: null,
     next30dLowDays: 0,
@@ -95,8 +114,10 @@ function seedBaseline(city: City): Baseline {
     next90dMinDate: null,
     next90dLowDays: 0,
     signal: "unknown",
-    refreshed: new Date().toISOString(),
-    source: "fallback",
+    pairs30: emptyPairsByNights(),
+    pairs90: emptyPairsByNights(),
+    refreshed: s ? SEED_REFRESHED_AT : new Date().toISOString(),
+    source: s ? "seed" : "fallback",
   };
 }
 
@@ -145,22 +166,25 @@ export async function fetchBaseline(city: City): Promise<Baseline> {
       const oneway = trimmedMean(prices, 0.1);
       const baseline = Math.round(oneway * ROUND_TRIP_FACTOR);
 
-      const w30 = analyzeWindow(validDays, 30);
-      const w90 = analyzeWindow(validDays, 90);
-      const signal = computeSignal(baseline, w30.min);
+      const pairs30 = buildPairs(validDays, 30, baseline);
+      const pairs90 = buildPairs(validDays, 90, baseline);
+      const best30 = pairs30[4]?.[0]; // 4박 default top
+      const best90 = pairs90[4]?.[0];
 
       return {
         baseline,
         min: Math.round(Math.min(...prices) * ROUND_TRIP_FACTOR),
         max: Math.round(Math.max(...prices) * ROUND_TRIP_FACTOR),
         samples: prices.length,
-        next30dMin: w30.min,
-        next30dMinDate: w30.minDate,
-        next30dLowDays: w30.lowDays,
-        next90dMin: w90.min,
-        next90dMinDate: w90.minDate,
-        next90dLowDays: w90.lowDays,
-        signal,
+        next30dMin: best30?.total ?? 0,
+        next30dMinDate: best30?.depart ?? null,
+        next30dLowDays: countLowDays(validDays, 30),
+        next90dMin: best90?.total ?? 0,
+        next90dMinDate: best90?.depart ?? null,
+        next90dLowDays: countLowDays(validDays, 90),
+        signal: best30 ? computeSignal(baseline, best30.total) : "unknown",
+        pairs30,
+        pairs90,
         refreshed: new Date().toISOString(),
         source: "skyscanner-rapidapi",
       };

@@ -3,13 +3,7 @@
 import { useMemo, useState } from "react";
 import { CATEGORY_LABELS, type City } from "@/lib/cities";
 import type { Baseline } from "@/lib/baseline";
-import {
-  DATE_PRESETS,
-  type DatePreset,
-  presetToDateRange,
-  skyscannerUrl,
-  smartDateToRange,
-} from "@/lib/skyscanner";
+import CityModal from "./CityModal";
 
 type Props = {
   cities: City[];
@@ -24,8 +18,7 @@ function formatDateShort(iso: string): string {
 }
 
 export default function HomeClient({ cities, baselines }: Props) {
-  const [preset, setPreset] = useState<DatePreset>("anytime");
-  const [nights, setNights] = useState<number>(4);
+  const [modalCity, setModalCity] = useState<City | null>(null);
 
   const grouped = useMemo(() => {
     const groups: Record<string, City[]> = {};
@@ -34,18 +27,6 @@ export default function HomeClient({ cities, baselines }: Props) {
     }
     return groups;
   }, [cities]);
-
-  // 카드 클릭 — preset이 "anytime"이면 카드의 줍줍 날짜로, 그 외엔 preset 따라
-  function go(city: City, smartDate?: string | null) {
-    const useSmart = preset === "anytime" && smartDate;
-    const range = useSmart
-      ? smartDateToRange(smartDate, nights)
-      : presetToDateRange(preset, nights);
-    const url = skyscannerUrl(city, range);
-    if (typeof window !== "undefined") {
-      window.open(url, "_blank", "noopener");
-    }
-  }
 
   const lastRefreshed = useMemo(() => {
     const ts = Object.values(baselines)
@@ -79,45 +60,10 @@ export default function HomeClient({ cities, baselines }: Props) {
         )}
       </header>
 
-      <section className="mb-8">
-        <div className="text-xs text-text-dim mb-2 uppercase tracking-wider">1. 언제</div>
-        <div className="flex flex-wrap gap-2">
-          {DATE_PRESETS.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => setPreset(p.id)}
-              className={`px-3 py-2 rounded-full text-sm border transition ${
-                preset === p.id
-                  ? "bg-accent-blue border-accent-blue text-white"
-                  : "bg-bg-card border-line text-text-muted hover:border-accent-blue/40 hover:text-text"
-              }`}
-            >
-              <span className="mr-1">{p.emoji}</span>
-              {p.label}
-            </button>
-          ))}
-        </div>
-        <div className="mt-3 flex items-center gap-2">
-          <span className="text-xs text-text-dim">며칠?</span>
-          {[2, 3, 4, 5, 7].map((n) => (
-            <button
-              key={n}
-              onClick={() => setNights(n)}
-              className={`px-2.5 py-1 rounded-md text-xs border transition ${
-                nights === n
-                  ? "bg-accent-purple/20 border-accent-purple text-accent-purple"
-                  : "bg-bg-card border-line text-text-dim hover:text-text"
-              }`}
-            >
-              {n}박
-            </button>
-          ))}
-        </div>
-        {preset === "anytime" && (
-          <p className="text-[11px] text-text-dim mt-2">
-            💡 "아무 때나" 모드 — 카드 클릭 시 다음 30일 중 가장 싼 날짜로 자동 검색
-          </p>
-        )}
+      <section className="mb-6">
+        <p className="text-[11px] text-text-dim">
+          💡 카드 클릭 → 도시별 줍줍 리스트 (박 수별 top 10 + 항공사)
+        </p>
       </section>
 
       <section>
@@ -166,7 +112,7 @@ export default function HomeClient({ cities, baselines }: Props) {
                   return (
                     <button
                       key={city.slug}
-                      onClick={() => go(city, b?.next30dMinDate)}
+                      onClick={() => setModalCity(city)}
                       className="text-left p-3 rounded-xl bg-bg-card hover:bg-bg-hover border border-line hover:border-accent-blue/40 transition"
                     >
                       <div className="flex items-start justify-between mb-1">
@@ -215,6 +161,14 @@ export default function HomeClient({ cities, baselines }: Props) {
         </p>
         <p className="mt-1">© 2026 줍줍여행사 · 본인 도구 · No ads · No signup</p>
       </footer>
+
+      {modalCity && (
+        <CityModal
+          city={modalCity}
+          baseline={baselines[modalCity.slug]}
+          onClose={() => setModalCity(null)}
+        />
+      )}
     </main>
   );
 }

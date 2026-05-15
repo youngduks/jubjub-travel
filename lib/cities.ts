@@ -14,6 +14,8 @@ export type City = {
   skyscanner_dest: string;
   emoji: string;
   vibe: string;
+  /** 한국 출발 주요 항공사 — 한국 retail 일반 지식 (실 항공편은 Skyscanner) */
+  carriers: string[];
 };
 
 export const ORIGIN_IATA = "ICN"; // 인천 default
@@ -33,6 +35,7 @@ export const CITIES: City[] = [
     skyscanner_dest: "CJU",
     emoji: "🏝️",
     vibe: "주말 도피",
+    carriers: ["대한", "아시아나", "제주", "티웨이", "진에어"],
   },
   // 🇯🇵 일본 (4)
   {
@@ -47,6 +50,7 @@ export const CITIES: City[] = [
     skyscanner_dest: "TYOA",
     emoji: "🗼",
     vibe: "도시 트립",
+    carriers: ["대한", "아시아나", "JAL", "ANA", "제주", "피치"],
   },
   {
     slug: "osaka",
@@ -60,6 +64,7 @@ export const CITIES: City[] = [
     skyscanner_dest: "OSAA",
     emoji: "🍜",
     vibe: "먹방 트립",
+    carriers: ["대한", "아시아나", "제주", "티웨이", "피치"],
   },
   {
     slug: "fukuoka",
@@ -73,6 +78,7 @@ export const CITIES: City[] = [
     skyscanner_dest: "FUK",
     emoji: "🍡",
     vibe: "가까운 일본",
+    carriers: ["대한", "아시아나", "제주", "티웨이", "진에어"],
   },
   {
     slug: "okinawa",
@@ -86,6 +92,7 @@ export const CITIES: City[] = [
     skyscanner_dest: "OKA",
     emoji: "🌊",
     vibe: "일본 휴양",
+    carriers: ["대한", "아시아나", "제주", "피치"],
   },
   // 🇻🇳 베트남 (2)
   {
@@ -100,6 +107,7 @@ export const CITIES: City[] = [
     skyscanner_dest: "DAD",
     emoji: "🏖️",
     vibe: "가성비 휴양",
+    carriers: ["대한", "비엣젯", "베트남", "제주", "티웨이"],
   },
   {
     slug: "phuquoc",
@@ -113,6 +121,7 @@ export const CITIES: City[] = [
     skyscanner_dest: "PQC",
     emoji: "🌴",
     vibe: "리조트 휴양",
+    carriers: ["대한", "비엣젯", "진에어"],
   },
   // 🇹🇭 태국 (1)
   {
@@ -127,6 +136,7 @@ export const CITIES: City[] = [
     skyscanner_dest: "BKKT",
     emoji: "🛕",
     vibe: "동남아 mainstream",
+    carriers: ["대한", "아시아나", "타이항공", "진에어", "제주"],
   },
 ];
 
