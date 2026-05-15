@@ -77,3 +77,11 @@ export function presetToDateRange(preset: DatePreset, nights: number = 4): DateR
   return_.setDate(depart.getDate() + nights);
   return { depart, return_ };
 }
+
+// 줍줍 날짜 (YYYY-MM-DD) → DateRange — 카드 클릭 시 그 날짜로 자동 검색
+export function smartDateToRange(isoDate: string, nights: number = 4): DateRange {
+  const depart = new Date(isoDate);
+  const return_ = new Date(depart);
+  return_.setDate(depart.getDate() + nights);
+  return { depart, return_ };
+}

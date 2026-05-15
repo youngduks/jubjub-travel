@@ -8,12 +8,20 @@ import {
   type DatePreset,
   presetToDateRange,
   skyscannerUrl,
+  smartDateToRange,
 } from "@/lib/skyscanner";
 
 type Props = {
   cities: City[];
   baselines: Record<string, Baseline>;
 };
+
+function formatDateShort(iso: string): string {
+  // "2026-06-03" → "6/3"
+  const m = iso.match(/^\d{4}-(\d{2})-(\d{2})/);
+  if (!m) return iso;
+  return `${parseInt(m[1], 10)}/${parseInt(m[2], 10)}`;
+}
 
 export default function HomeClient({ cities, baselines }: Props) {
   const [preset, setPreset] = useState<DatePreset>("anytime");
@@ -27,23 +35,30 @@ export default function HomeClient({ cities, baselines }: Props) {
     return groups;
   }, [cities]);
 
-  function go(city: City) {
-    const range = presetToDateRange(preset, nights);
+  // 카드 클릭 — preset이 "anytime"이면 카드의 줍줍 날짜로, 그 외엔 preset 따라
+  function go(city: City, smartDate?: string | null) {
+    const useSmart = preset === "anytime" && smartDate;
+    const range = useSmart
+      ? smartDateToRange(smartDate, nights)
+      : presetToDateRange(preset, nights);
     const url = skyscannerUrl(city, range);
     if (typeof window !== "undefined") {
       window.open(url, "_blank", "noopener");
     }
   }
 
-  // 갱신 시각 가장 최근 baseline 1개 기준
   const lastRefreshed = useMemo(() => {
     const ts = Object.values(baselines)
       .map((b) => new Date(b.refreshed).getTime())
       .filter((n) => n > 0);
     if (ts.length === 0) return null;
-    const latest = new Date(Math.max(...ts));
-    return latest;
+    return new Date(Math.max(...ts));
   }, [baselines]);
+
+  const isSeedSnapshot = useMemo(
+    () => Object.values(baselines).some((b) => b.source === "seed"),
+    [baselines]
+  );
 
   return (
     <main className="max-w-3xl mx-auto px-5 py-8">
@@ -53,11 +68,13 @@ export default function HomeClient({ cities, baselines }: Props) {
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">줍줍여행사</h1>
         </div>
         <p className="text-sm text-text-muted">
-          평소보다 싼 항공권 줍줍 — 도시 + 일정 클릭하면 끝
+          평소보다 싼 항공권 줍줍 — 카드 클릭 = 가장 싼 날짜로 검색
         </p>
         {lastRefreshed && (
           <p className="text-[11px] text-text-dim mt-1">
-            평월 가격: Skyscanner 1년 분포 trimmed mean · {lastRefreshed.toLocaleString("ko-KR")} 갱신
+            {isSeedSnapshot
+              ? "데이터: 2026-05-15 snapshot (다음 갱신 6월 1일)"
+              : `평월 = Skyscanner 1년 trimmed mean · ${lastRefreshed.toLocaleString("ko-KR")} 갱신`}
           </p>
         )}
       </header>
@@ -80,23 +97,26 @@ export default function HomeClient({ cities, baselines }: Props) {
             </button>
           ))}
         </div>
-        {preset !== "anytime" && (
-          <div className="mt-3 flex items-center gap-2">
-            <span className="text-xs text-text-dim">며칠?</span>
-            {[2, 3, 4, 5, 7].map((n) => (
-              <button
-                key={n}
-                onClick={() => setNights(n)}
-                className={`px-2.5 py-1 rounded-md text-xs border transition ${
-                  nights === n
-                    ? "bg-accent-purple/20 border-accent-purple text-accent-purple"
-                    : "bg-bg-card border-line text-text-dim hover:text-text"
-                }`}
-              >
-                {n}박
-              </button>
-            ))}
-          </div>
+        <div className="mt-3 flex items-center gap-2">
+          <span className="text-xs text-text-dim">며칠?</span>
+          {[2, 3, 4, 5, 7].map((n) => (
+            <button
+              key={n}
+              onClick={() => setNights(n)}
+              className={`px-2.5 py-1 rounded-md text-xs border transition ${
+                nights === n
+                  ? "bg-accent-purple/20 border-accent-purple text-accent-purple"
+                  : "bg-bg-card border-line text-text-dim hover:text-text"
+              }`}
+            >
+              {n}박
+            </button>
+          ))}
+        </div>
+        {preset === "anytime" && (
+          <p className="text-[11px] text-text-dim mt-2">
+            💡 "아무 때나" 모드 — 카드 클릭 시 다음 30일 중 가장 싼 날짜로 자동 검색
+          </p>
         )}
       </section>
 
@@ -114,33 +134,68 @@ export default function HomeClient({ cities, baselines }: Props) {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {list.map((city) => {
                   const b = baselines[city.slug];
-                  const hasPrice =
+                  const hasBase =
                     !!b &&
                     (b.source === "skyscanner-rapidapi" || b.source === "seed") &&
                     b.baseline > 0;
-                  const baselineWan = hasPrice && b ? (b.baseline / 10000).toFixed(0) : null;
-                  const minWan = hasPrice && b?.min ? (b.min / 10000).toFixed(0) : null;
+                  const hasSignal =
+                    !!b &&
+                    b.source === "skyscanner-rapidapi" &&
+                    b.next30dMinDate !== null &&
+                    b.signal !== "unknown" &&
+                    b.next30dMin > 0;
+
+                  const baselineWan = hasBase && b ? (b.baseline / 10000).toFixed(0) : null;
+                  const next30Wan =
+                    hasSignal && b ? (b.next30dMin / 10000).toFixed(0) : null;
+                  const pct =
+                    hasSignal && b
+                      ? Math.round((1 - b.next30dMin / b.baseline) * 100)
+                      : null;
+
+                  const sig = b?.signal;
+                  const sigEmoji =
+                    sig === "hot" ? "🔥" : sig === "expensive" ? "⚠️" : "👀";
+                  const sigColor =
+                    sig === "hot"
+                      ? "text-accent-green"
+                      : sig === "expensive"
+                      ? "text-red-400"
+                      : "text-text-muted";
 
                   return (
                     <button
                       key={city.slug}
-                      onClick={() => go(city)}
+                      onClick={() => go(city, b?.next30dMinDate)}
                       className="text-left p-3 rounded-xl bg-bg-card hover:bg-bg-hover border border-line hover:border-accent-blue/40 transition"
                     >
-                      <div className="text-xl mb-1">{city.emoji}</div>
-                      <div className="text-sm font-semibold text-text">{city.name_ko}</div>
-                      <div className="text-[11px] text-text-dim leading-tight">
-                        {hasPrice ? (
-                          <div>
-                            평월 ₩{baselineWan}만
-                            {minWan && (
-                              <span className="text-accent-green ml-1">↓₩{minWan}만</span>
-                            )}
+                      <div className="flex items-start justify-between mb-1">
+                        <div className="text-xl">{city.emoji}</div>
+                        {hasSignal && pct !== null && (
+                          <div className={`text-[11px] font-semibold ${sigColor}`}>
+                            {sigEmoji} {pct > 0 ? `-${pct}%` : `+${-pct}%`}
                           </div>
+                        )}
+                      </div>
+                      <div className="text-sm font-semibold text-text">{city.name_ko}</div>
+                      <div className="text-[11px] text-text-dim leading-tight mt-0.5">
+                        {hasSignal && b ? (
+                          <>
+                            <div className="text-accent-green font-medium">
+                              💎 {formatDateShort(b.next30dMinDate!)} ₩{next30Wan}만
+                            </div>
+                            <div className="text-text-dim/80">
+                              평월 ₩{baselineWan}만 · 90일 줍줍 {b.next90dLowDays}일
+                            </div>
+                          </>
+                        ) : hasBase ? (
+                          <>
+                            <div>평월 ₩{baselineWan}만</div>
+                            <div className="text-text-dim/70">{city.vibe}</div>
+                          </>
                         ) : (
                           <div className="text-text-dim/60">가격 로딩 중…</div>
                         )}
-                        <div>{city.vibe}</div>
                       </div>
                     </button>
                   );
@@ -153,8 +208,10 @@ export default function HomeClient({ cities, baselines }: Props) {
 
       <footer className="mt-10 pt-6 border-t border-line text-xs text-text-dim leading-6">
         <p>
-          평월 가격 = Skyscanner 1년치 일일 최저가의 trimmed mean (상하 10% 제외) × 1.95 (왕복 환산).
-          실 가격은 도시 클릭 시 Skyscanner에서 확인.
+          <strong>🔥 줍줍 시그널</strong>: 다음 30일 최저가 vs 1년 평월 — -30%↓ 🔥 / -30~+10% 👀 / +10%↑ ⚠️
+        </p>
+        <p className="mt-1">
+          평월 = Skyscanner 1년 일일 최저가의 trimmed mean × 1.95 (왕복 환산). 실 가격은 카드 클릭 후 Skyscanner에서 확인.
         </p>
         <p className="mt-1">© 2026 줍줍여행사 · 본인 도구 · No ads · No signup</p>
       </footer>
