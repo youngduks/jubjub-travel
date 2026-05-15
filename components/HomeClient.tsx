@@ -115,9 +115,8 @@ export default function HomeClient({ cities, baselines }: Props) {
                 {list.map((city) => {
                   const b = baselines[city.slug];
                   const fromLive = b?.source === "skyscanner-rapidapi" && b.samples > 0;
-                  const baselineKrw = b?.baseline || city.baseline_krw;
-                  const baselineWan = (baselineKrw / 10000).toFixed(0);
-                  const minWan = b?.min ? (b.min / 10000).toFixed(0) : null;
+                  const baselineWan = fromLive && b ? (b.baseline / 10000).toFixed(0) : null;
+                  const minWan = fromLive && b?.min ? (b.min / 10000).toFixed(0) : null;
 
                   return (
                     <button
@@ -128,12 +127,16 @@ export default function HomeClient({ cities, baselines }: Props) {
                       <div className="text-xl mb-1">{city.emoji}</div>
                       <div className="text-sm font-semibold text-text">{city.name_ko}</div>
                       <div className="text-[11px] text-text-dim leading-tight">
-                        <div>
-                          {fromLive ? "평월" : "~"}₩{baselineWan}만
-                          {fromLive && minWan && (
-                            <span className="text-accent-green ml-1">↓₩{minWan}만</span>
-                          )}
-                        </div>
+                        {fromLive ? (
+                          <div>
+                            평월 ₩{baselineWan}만
+                            {minWan && (
+                              <span className="text-accent-green ml-1">↓₩{minWan}만</span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-text-dim/60">가격 로딩 중…</div>
+                        )}
                         <div>{city.vibe}</div>
                       </div>
                     </button>

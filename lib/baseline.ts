@@ -35,7 +35,7 @@ export async function fetchBaseline(city: City): Promise<Baseline> {
   if (!key) {
     // fallback: cities.ts의 본능 baseline
     return {
-      baseline: city.baseline_krw,
+      baseline: 0,
       min: 0,
       max: 0,
       samples: 0,
@@ -66,7 +66,7 @@ export async function fetchBaseline(city: City): Promise<Baseline> {
 
   if (!res.ok) {
     return {
-      baseline: city.baseline_krw,
+      baseline: 0,
       min: 0,
       max: 0,
       samples: 0,
@@ -81,7 +81,7 @@ export async function fetchBaseline(city: City): Promise<Baseline> {
 
   if (prices.length === 0) {
     return {
-      baseline: city.baseline_krw,
+      baseline: 0,
       min: 0,
       max: 0,
       samples: 0,

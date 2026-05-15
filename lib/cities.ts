@@ -1,5 +1,5 @@
-// 형님 자주 가는 8개 도시 — dogfooding default profile
-// 일본 weight ★★★★ (4/8), 동남아 ★★ (3/8), 국내 ★ (1/8)
+// 형님 자주 가는 8개 도시 — 형님이 직접 지정
+// 제주 / 도쿄·오사카·후쿠오카·오키나와 / 다낭·푸꾸옥 / 방콕
 
 export type City = {
   slug: string;
@@ -10,8 +10,6 @@ export type City = {
   flag: string;
   iata: string; // 도착 공항 IATA
   category: "domestic" | "japan" | "vietnam" | "thailand";
-  /** 형님 본능 — 평월 평균 KRW (대략, 인천 출발 economy 왕복) */
-  baseline_krw: number;
   /** Skyscanner 검색 URL 생성용 도시 키 */
   skyscanner_dest: string;
   emoji: string;
@@ -32,7 +30,6 @@ export const CITIES: City[] = [
     flag: "🇰🇷",
     iata: "CJU",
     category: "domestic",
-    baseline_krw: 120000,
     skyscanner_dest: "CJU",
     emoji: "🏝️",
     vibe: "주말 도피",
@@ -47,8 +44,7 @@ export const CITIES: City[] = [
     flag: "🇯🇵",
     iata: "NRT",
     category: "japan",
-    baseline_krw: 380000,
-    skyscanner_dest: "TYOA", // Tokyo any
+    skyscanner_dest: "TYOA",
     emoji: "🗼",
     vibe: "도시 트립",
   },
@@ -61,7 +57,6 @@ export const CITIES: City[] = [
     flag: "🇯🇵",
     iata: "KIX",
     category: "japan",
-    baseline_krw: 320000,
     skyscanner_dest: "OSAA",
     emoji: "🍜",
     vibe: "먹방 트립",
@@ -75,7 +70,6 @@ export const CITIES: City[] = [
     flag: "🇯🇵",
     iata: "FUK",
     category: "japan",
-    baseline_krw: 280000,
     skyscanner_dest: "FUK",
     emoji: "🍡",
     vibe: "가까운 일본",
@@ -89,7 +83,6 @@ export const CITIES: City[] = [
     flag: "🇯🇵",
     iata: "OKA",
     category: "japan",
-    baseline_krw: 420000,
     skyscanner_dest: "OKA",
     emoji: "🌊",
     vibe: "일본 휴양",
@@ -104,7 +97,6 @@ export const CITIES: City[] = [
     flag: "🇻🇳",
     iata: "DAD",
     category: "vietnam",
-    baseline_krw: 480000,
     skyscanner_dest: "DAD",
     emoji: "🏖️",
     vibe: "가성비 휴양",
@@ -118,7 +110,6 @@ export const CITIES: City[] = [
     flag: "🇻🇳",
     iata: "PQC",
     category: "vietnam",
-    baseline_krw: 580000,
     skyscanner_dest: "PQC",
     emoji: "🌴",
     vibe: "리조트 휴양",
@@ -133,7 +124,6 @@ export const CITIES: City[] = [
     flag: "🇹🇭",
     iata: "BKK",
     category: "thailand",
-    baseline_krw: 520000,
     skyscanner_dest: "BKKT",
     emoji: "🛕",
     vibe: "동남아 mainstream",
