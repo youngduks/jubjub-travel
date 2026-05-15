@@ -189,7 +189,8 @@ export default function HomeClient({ cities, baselines }: Props) {
           <strong>줍줍 시그널</strong>: 다음 30일 최저가 vs 1년 평월 — -30%↓ 🔥싸다 / -30~+10% 👀보통 / +10%↑ ⚠️비쌈
         </p>
         <p className="mt-1">
-          가격은 추정 (Skyscanner 1년 일일 최저가 페어 합산 × 0.97). 실 가격 + 항공편은 카드 클릭 → Skyscanner에서 확인.
+          가격 = 운임(Skyscanner 1년 일일 최저 페어 합산 × 0.97) + 노선별 평균 세금/유류할증.
+          실 가격은 항공사 promo · 환율 · 출발 시간대에 따라 ±10% 변동 — 카드 클릭 → Skyscanner에서 확인.
         </p>
         <p className="mt-1">© 2026 줍줍여행사 · 본인 도구 · No ads · No signup</p>
       </footer>

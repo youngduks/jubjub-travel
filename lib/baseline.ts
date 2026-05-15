@@ -64,7 +64,8 @@ export function computeSignal(baseline: number, price: number): Signal {
 function buildPairs(
   days: ApiDay[],
   windowDays: number,
-  baseline: number
+  baseline: number,
+  taxRoundTrip: number
 ): Record<number, Pair[]> {
   const slice = days.slice(0, windowDays);
   const out: Record<number, Pair[]> = {};
@@ -74,7 +75,8 @@ function buildPairs(
       const a = slice[i];
       const b = slice[i + n];
       if (a.price <= 0 || b.price <= 0) continue;
-      const total = Math.round((a.price + b.price) * PAIR_DISCOUNT);
+      // 세금 포함 total — 운임 페어 합산 + 왕복 세금
+      const total = Math.round((a.price + b.price) * PAIR_DISCOUNT) + taxRoundTrip;
       pairs.push({
         depart: a.day,
         returnDate: b.day,
@@ -101,10 +103,12 @@ function emptyPairsByNights(): Record<number, Pair[]> {
 
 function seedBaseline(city: City): Baseline {
   const s = BASELINE_SEED[city.slug];
-  const base = s?.baseline ?? 0;
+  const taxRT = (city.tax_oneway_krw ?? 0) * 2;
+  // seed는 운임 기준이라 세금 합산해서 새 unit으로
+  const base = s?.baseline ? s.baseline + taxRT : 0;
   return {
     baseline: base,
-    min: s?.min ?? 0,
+    min: s?.min ? s.min + taxRT : 0,
     max: base,
     samples: s?.samples ?? 0,
     next30dMin: 0,
@@ -164,17 +168,19 @@ export async function fetchBaseline(city: City): Promise<Baseline> {
 
       const prices = validDays.map((d) => d.price);
       const oneway = trimmedMean(prices, 0.1);
-      const baseline = Math.round(oneway * ROUND_TRIP_FACTOR);
+      const taxRT = (city.tax_oneway_krw ?? 0) * 2;
+      // baseline (세금 포함) — 운임 왕복 환산 + 왕복 세금
+      const baseline = Math.round(oneway * ROUND_TRIP_FACTOR) + taxRT;
 
-      const pairs30 = buildPairs(validDays, 30, baseline);
-      const pairs90 = buildPairs(validDays, 90, baseline);
+      const pairs30 = buildPairs(validDays, 30, baseline, taxRT);
+      const pairs90 = buildPairs(validDays, 90, baseline, taxRT);
       const best30 = pairs30[4]?.[0]; // 4박 default top
       const best90 = pairs90[4]?.[0];
 
       return {
         baseline,
-        min: Math.round(Math.min(...prices) * ROUND_TRIP_FACTOR),
-        max: Math.round(Math.max(...prices) * ROUND_TRIP_FACTOR),
+        min: Math.round(Math.min(...prices) * ROUND_TRIP_FACTOR) + taxRT,
+        max: Math.round(Math.max(...prices) * ROUND_TRIP_FACTOR) + taxRT,
         samples: prices.length,
         next30dMin: best30?.total ?? 0,
         next30dMinDate: best30?.depart ?? null,

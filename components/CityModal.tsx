@@ -112,7 +112,7 @@ export default function CityModal({ city, baseline, initialNights = 4, onClose }
               )}
             </div>
             <div className="text-[11px] text-text-dim mt-1 leading-relaxed">
-              {baselineWan ? `평월 ₩${baselineWan}만 (왕복)` : "평월 -"}
+              {baselineWan ? `평월 ₩${baselineWan}만 (왕복, 세금 포함)` : "평월 -"}
               <br />
               주요: {city.carriers.join(" / ")}
             </div>
@@ -223,9 +223,10 @@ export default function CityModal({ city, baseline, initialNights = 4, onClose }
 
         {/* footer */}
         <div className="px-5 py-3 border-t border-line text-[11px] text-text-dim leading-relaxed">
-          * 가격은 추정 — (출발일 편도 + 귀국일 편도) × 0.97 합산.
+          가격 = 운임(편도+편도)×0.97 + 노선별 평균 세금 (왕복 ₩
+          {((city.tax_oneway_krw * 2) / 10000).toFixed(0)}만).
           <br />
-          실 가격 · 항공편 · 시간대는 행을 눌러 Skyscanner에서 확인.
+          실 가격은 항공사 promo · 환율 · 시간대에 따라 ±10% 변동 — 행을 눌러 Skyscanner에서 확인.
         </div>
       </div>
     </div>
