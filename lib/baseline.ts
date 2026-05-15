@@ -53,7 +53,7 @@ function trimmedMean(values: number[], trimPct = 0.1): number {
   return Math.round(sum / trimmed.length);
 }
 
-function computeSignal(baseline: number, price: number): Signal {
+export function computeSignal(baseline: number, price: number): Signal {
   if (baseline === 0 || price === 0) return "unknown";
   const ratio = price / baseline;
   if (ratio <= 0.7) return "hot";

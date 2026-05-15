@@ -8,6 +8,7 @@ import { skyscannerUrl } from "@/lib/skyscanner";
 type Props = {
   city: City;
   baseline?: Baseline;
+  initialNights?: number;
   onClose: () => void;
 };
 
@@ -29,6 +30,10 @@ function signalEmoji(s: Signal): string {
   return s === "hot" ? "🔥" : s === "expensive" ? "⚠️" : "👀";
 }
 
+function signalLabel(s: Signal): string {
+  return s === "hot" ? "싸다" : s === "expensive" ? "비쌈" : s === "ok" ? "보통" : "";
+}
+
 function signalColor(s: Signal): string {
   return s === "hot"
     ? "text-accent-green"
@@ -37,8 +42,8 @@ function signalColor(s: Signal): string {
     : "text-text-muted";
 }
 
-export default function CityModal({ city, baseline, onClose }: Props) {
-  const [nights, setNights] = useState<number>(4);
+export default function CityModal({ city, baseline, initialNights = 4, onClose }: Props) {
+  const [nights, setNights] = useState<number>(initialNights);
   const [windowType, setWindowType] = useState<"30" | "90">("30");
 
   useEffect(() => {
@@ -94,7 +99,14 @@ export default function CityModal({ city, baseline, onClose }: Props) {
                 >
                   {signalEmoji(baseline.signal)}{" "}
                   {baseline.next30dMin > 0 && baseline.baseline > 0
-                    ? `${Math.round((1 - baseline.next30dMin / baseline.baseline) * 100)}% 싸다`
+                    ? (() => {
+                        const p = Math.round(
+                          (1 - baseline.next30dMin / baseline.baseline) * 100
+                        );
+                        return p > 0
+                          ? `${p}% ${signalLabel(baseline.signal)}`
+                          : `+${-p}% ${signalLabel(baseline.signal)}`;
+                      })()
                     : ""}
                 </span>
               )}
@@ -133,18 +145,21 @@ export default function CityModal({ city, baseline, onClose }: Props) {
             ))}
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs text-text-dim w-12">윈도우:</span>
-            {(["30", "90"] as const).map((w) => (
+            <span className="text-xs text-text-dim w-12">기간</span>
+            {([
+              { v: "30", label: "이번 달 (30일)" },
+              { v: "90", label: "다음 분기 (90일)" },
+            ] as const).map((w) => (
               <button
-                key={w}
-                onClick={() => setWindowType(w)}
+                key={w.v}
+                onClick={() => setWindowType(w.v)}
                 className={`px-2.5 py-1 rounded-md text-xs border transition ${
-                  windowType === w
+                  windowType === w.v
                     ? "bg-accent-blue/20 border-accent-blue text-accent-blue"
                     : "bg-bg-card border-line text-text-dim hover:text-text"
                 }`}
               >
-                다음 {w}일
+                {w.label}
               </button>
             ))}
           </div>
@@ -196,7 +211,7 @@ export default function CityModal({ city, baseline, onClose }: Props) {
                       className={`text-sm font-semibold ${signalColor(p.signal)}`}
                     >
                       {signalEmoji(p.signal)}{" "}
-                      {p.pct > 0 ? `-${p.pct}%` : `+${-p.pct}%`}
+                      {p.pct > 0 ? `${p.pct}% ${signalLabel(p.signal)}` : `+${-p.pct}% ${signalLabel(p.signal)}`}
                     </span>
                     <span className="text-text-dim">→</span>
                   </div>
@@ -208,9 +223,9 @@ export default function CityModal({ city, baseline, onClose }: Props) {
 
         {/* footer */}
         <div className="px-5 py-3 border-t border-line text-[11px] text-text-dim leading-relaxed">
-          가격 = (출발일 편도 + 귀국일 편도) × 0.97 indicative.
+          * 가격은 추정 — (출발일 편도 + 귀국일 편도) × 0.97 합산.
           <br />
-          실 가격 · 항공편 · 시간대는 클릭 후 Skyscanner에서 확인.
+          실 가격 · 항공편 · 시간대는 행을 눌러 Skyscanner에서 확인.
         </div>
       </div>
     </div>
